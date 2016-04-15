@@ -722,7 +722,8 @@ struct CPUMIPSState {
 #define CP2Ca_USRDEFINE     0x08    /* User-defined Permission Violation */
 #define CP2Ca_TLB_STORE     0x09    /* TLB prohibits store capability */
 #define CP2Ca_INEXACT       0x0A    /* Bounds cannot be represented exactly */
-// 0x0b-0x0f Reserved
+#define CP2Ca_TLB_LOAD      0x0B    /* TLB prohibits load capability */
+// 0x0c-0x0f Reserved
 #define CP2Ca_GLOBAL        0x10 /* Global Violation */
 #define CP2Ca_PERM_EXE      0x11 /* Permit_Execute Violation */
 #define CP2Ca_PERM_LD       0x12 /* Permit_Load Violation */

@@ -2860,8 +2860,7 @@ target_ulong helper_clc_addr(CPUMIPSState *env, uint32_t cd, uint32_t cb,
          * Do the first load of the capability and then get the tag in
          * helper_bytes2cap_op() below.
         tag = cheri_tag_get(env, addr, cd, NULL);
-        if (env->TLB_L)
-            tag = 0;
+        assert(!env->TLB_L); // should have caused a trap
         cdp->cr_tag = tag;
         */
         return (target_ulong)addr;
@@ -2907,8 +2906,7 @@ target_ulong helper_cllc_addr(CPUMIPSState *env, uint32_t cd, uint32_t cb)
      * Do the first load of the capability and then get the tag in
      * helper_bytes2cap_opll() below.
     tag = cheri_tag_get(env, addr, cd, &env->lladdr);
-    if (env->TLB_L)
-        tag = 0;
+    assert(!env->TLB_L); // should have caused a trap
     cdp->cr_tag = tag;
     */
 
@@ -3036,8 +3034,7 @@ void helper_bytes2cap_m128(CPUMIPSState *env, uint32_t cd, target_ulong cursor,
     cap_register_t *cdp = &env->active_tc.C[cd];
     uint32_t tag = cheri_tag_get_m128(env, addr, cd, &tps, &length);
 
-    if (env->TLB_L)
-        tag = 0;
+    assert(!env->TLB_L); /* should have caused a trap */
     cdp->cr_tag = tag;
 
     cdp->cr_otype = (uint32_t)(tps >> 32);
@@ -3172,8 +3169,7 @@ void helper_bytes2cap_op(CPUMIPSState *env, uint32_t cd, target_ulong otype,
     cap_register_t *cdp = &env->active_tc.C[cd];
     uint32_t tag = cheri_tag_get(env, addr, cd, NULL);
 
-    if (env->TLB_L)
-        tag = 0;
+    assert(!env->TLB_L); /* should have caused a trap */
     cdp->cr_tag = tag;
 
     cdp->cr_otype = (uint32_t)(otype >> 32);
@@ -3196,8 +3192,7 @@ void helper_bytes2cap_opll(CPUMIPSState *env, uint32_t cd, target_ulong otype,
     cap_register_t *cdp = &env->active_tc.C[cd];
     uint32_t tag = cheri_tag_get(env, addr, cd, &env->lladdr);
 
-    if (env->TLB_L)
-        tag = 0;
+    assert(!env->TLB_L); /* should have caused a trap */
     cdp->cr_tag = tag;
 
     cdp->cr_otype = (uint32_t)(otype >> 32);

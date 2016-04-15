@@ -29,6 +29,7 @@
 
 enum {
 #ifdef TARGET_CHERI
+    TLBRET_L = -6,
     TLBRET_S = -5,
 #else
     TLBRET_XI = -6,
@@ -97,9 +98,10 @@ int r4k_map_address (CPUMIPSState *env, hwaddr *physical, int *prot,
             }
 #if defined(TARGET_CHERI)
             if (rw == MMU_DATA_CAP_LOAD && (n ? tlb->L1 : tlb->L0)) {
-                env->TLB_L = 1;
+                env->TLB_L = 1; /* TODO: required? */
+                return TLBRET_L;
             } else {
-                env->TLB_L = 0;
+                env->TLB_L = 0;  /* TODO: required? */
             }
             if (rw == MMU_DATA_CAP_STORE && (n ? tlb->S1 : tlb->S0)) {
                 return TLBRET_S;
@@ -301,6 +303,13 @@ static void raise_mmu_exception(CPUMIPSState *env, target_ulong address,
         exception = EXCP_LTLBL;
         break;
 #ifdef TARGET_CHERI
+    case TLBRET_L:
+        /* TLB capability load bit was set, blocking capability store. */
+        cpu_mips_store_capcause(env, reg, CP2Ca_TLB_LOAD);
+        env->active_tc.PC = env->active_tc.PCC.cr_offset +
+            env->active_tc.PCC.cr_base;
+        exception = EXCP_C2E;
+        break;
     case TLBRET_S:
         /* TLB capability store bit was set, blocking capability store. */
         cpu_mips_store_capcause(env, reg, CP2Ca_TLB_STORE);
