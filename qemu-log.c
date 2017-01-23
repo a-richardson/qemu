@@ -50,6 +50,7 @@ void qemu_log_mask(int mask, const char *fmt, ...)
 /* enable or disable low levels log */
 void do_qemu_set_log(int log_flags, bool use_own_buffers)
 {
+    /* XXXAR: CVTRACE and LOG_INSTR should be mutually exclusive */
     qemu_loglevel = log_flags;
     if (qemu_loglevel && !qemu_logfile) {
         if (logfilename) {

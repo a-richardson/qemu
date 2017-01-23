@@ -4373,6 +4373,8 @@ static void gen_st_cond (DisasContext *ctx, uint32_t opc, int rt,
         save_cpu_state(ctx, 1);
         GEN_CAP_CHECK_STORE(t0, t0, 4);
         op_st_sc(t1, t0, rt, ctx);
+	// FIXME: should this be GEN_CAP_INVADIATE_TAG?
+	// translate.c:3579:20: note: expected ‘TCGv_i32 {aka struct TCGv_i32_d *}’ but argument is of type ‘TCGv_i64 {aka struct TCGv_i64_d *}’
         GEN_CAP_INVADIATE_TAG32(t0, 4, opc, t1);
         opn = "sc";
         break;

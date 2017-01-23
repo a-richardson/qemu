@@ -3601,6 +3601,8 @@ void helper_instr_stop_user_mode_only(CPUMIPSState *env, target_ulong pc)
     qemu_set_log(qemu_loglevel & ~CPU_LOG_USER_ONLY);
 }
 
+// TODO: li $zero, 0xface -> print ascii string
+
 #ifdef CHERI_128
 /*
  * Print capability load from memory to log file.
