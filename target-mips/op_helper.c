@@ -3541,18 +3541,18 @@ target_ulong helper_cscc_addr(CPUMIPSState *env, uint32_t cs, uint32_t cb)
 /* Start instruction trace logging. */
 void helper_instr_start(CPUMIPSState *env)
 {
-    qemu_set_log(qemu_loglevel | CHERI_DEFAULT_TRACE_FLAG);
-    user_trace_dbg("Switching on tracing @ 0x%lx ASID %lu\n",
-        env->active_tc.PC, env->CP0_EntryHi & 0xFF);
     /* Don't turn on tracing if user-mode only is selected and we are in the kernel */
     if (env->user_only_tracing_enabled && !IN_USERSPACE(env)) {
+        assert(qemu_loglevel_mask(CPU_LOG_USER_ONLY));
         user_trace_dbg("Delaying tracing request at 0x%lx "
             "until next switch to user mode, ASID %lu\n",
             env->active_tc.PC, env->CP0_EntryHi & 0xFF);
-        env->trace_level_before_suspend = qemu_loglevel & CHERI_DEFAULT_TRACE_FLAG;
-        qemu_set_log(qemu_loglevel & ~CHERI_DEFAULT_TRACE_FLAG);
+        env->trace_level_before_suspend = CHERI_DEFAULT_TRACE_FLAG;
         env->tracing_suspended = true;
     } else {
+        qemu_set_log(qemu_loglevel | CHERI_DEFAULT_TRACE_FLAG);
+        user_trace_dbg("Switching on tracing @ 0x%lx ASID %lu\n",
+            env->active_tc.PC, env->CP0_EntryHi & 0xFF);
         env->tracing_suspended = false;
     }
 }
@@ -3566,12 +3566,12 @@ void helper_instr_stop(CPUMIPSState *env)
     /* Make sure a kernel -> user switch does not turn on tracing */
     env->trace_level_before_suspend = 0;
     env->tracing_suspended = false;
-
 }
 
 /* Set instruction trace logging to user mode only. */
 void helper_instr_start_user_mode_only(CPUMIPSState *env)
 {
+    qemu_set_log(qemu_loglevel | CPU_LOG_USER_ONLY);
     user_trace_dbg("User-mode only tracing enabled at 0x%lx, ASID %lu\n",
         env->active_tc.PC, env->CP0_EntryHi & 0xFF);
     env->user_only_tracing_enabled = true;
@@ -3598,6 +3598,7 @@ void helper_instr_stop_user_mode_only(CPUMIPSState *env)
     env->user_only_tracing_enabled = false;
     user_trace_dbg("User-mode only tracing disabled at 0x%lx, ASID %lu\n",
         env->active_tc.PC, env->CP0_EntryHi & 0xFF);
+    qemu_set_log(qemu_loglevel & ~CPU_LOG_USER_ONLY);
 }
 
 #ifdef CHERI_128
