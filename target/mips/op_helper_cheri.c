@@ -84,6 +84,7 @@ const char *cp2_fault_causestr[] = {
 };
 
 
+
 #ifdef __clang__
 #pragma clang diagnostic error "-Wdeprecated-declarations"
 #else
@@ -2604,7 +2605,7 @@ target_ulong check_ddc(CPUMIPSState *env, uint32_t perm, uint64_t ddc_offset, ui
 {
     const cap_register_t *ddc = &env->active_tc.CHWR.DDC;
     target_ulong addr = ddc_offset + cap_get_cursor(ddc);
-    // qemu_log("ST(%u):%016lx\n", len, addr);
+    qemu_log_mask(CPU_LOG_INSTR, "Checking $ddc: " TARGET_FMT_plx " -> " TARGET_FMT_plx"\n", ddc_offset, addr);
     // FIXME: should regnum be 32 instead?
     check_cap(env, ddc, perm, addr, /*regnum=*/0, len, instavail, retpc);
     return addr;
@@ -2626,6 +2627,34 @@ void CHERI_HELPER_IMPL(ccheck_load_pcrel(CPUMIPSState *env, target_ulong addr,
     check_cap(env, &env->active_tc.PCC, CAP_PERM_LOAD, addr, /*regnum=*/0, len,
               /*instavail=*/true, GETPC());
 }
+
+// For CHERI we intercept all TCG loads and stores to perform the $ddc
+// checks and indirection.
+// Note: We don't do checks for MMU_INST_FETCH since these reads happen during
+// translation and not execution so we don't know the correct $pcc value yet.
+// $ppc checks are perfomed by ccheck_pc prior to every instruction.
+
+
+vaddr cheri_cpu_do_intercept_load(CPUState *cs, vaddr addr, MemOp op,
+                                  MMUAccessType access_type, int mmu_idx,
+                                  uintptr_t retaddr) {
+    if (access_type == MMU_INST_FETCH)
+        return addr;
+    MIPSCPU *cpu = MIPS_CPU(cs);
+    CPUMIPSState *env = &cpu->env;
+    tcg_debug_assert(access_type == MMU_DATA_LOAD);
+    return check_ddc(env, CAP_PERM_LOAD, addr, memop_size(op), /*instavail=*/true, retaddr);
+}
+
+vaddr cheri_cpu_do_intercept_store(CPUState *cs, vaddr addr, MemOp op,
+                                       MMUAccessType access_type, int mmu_idx,
+                                       uintptr_t retaddr) {
+    MIPSCPU *cpu = MIPS_CPU(cs);
+    CPUMIPSState *env = &cpu->env;
+    tcg_debug_assert(access_type == MMU_DATA_STORE);
+    return check_ddc(env, CAP_PERM_STORE, addr, memop_size(op), /*instavail=*/true, retaddr);
+}
+
 
 void CHERI_HELPER_IMPL(cinvalidate_tag_left_right(CPUMIPSState *env, target_ulong addr, uint32_t len,
     uint32_t opc, target_ulong value))

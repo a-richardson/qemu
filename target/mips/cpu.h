@@ -1592,7 +1592,14 @@ void cheri_tag_set(CPUMIPSState *env, target_ulong vaddr, int reg,
 void cheri_cpu_dump_statistics(CPUState *cs, int flags);
 void cheri_cpu_dump_statistics_f(CPUState *cs, FILE* f, int flags);
 void qemu_log_capreg(const cap_register_t *cr, const char* prefix, const char* name);
-target_ulong check_ddc(CPUMIPSState *env, uint32_t perm, uint64_t addr, uint32_t len, bool instavail, uintptr_t retpc);
+vaddr cheri_cpu_do_intercept_load(CPUState *cs, vaddr addr, MemOp op,
+                                  MMUAccessType access_type, int mmu_idx,
+                                  uintptr_t retaddr);
+vaddr cheri_cpu_do_intercept_store(CPUState *cs, vaddr addr, MemOp op,
+                                   MMUAccessType access_type, int mmu_idx,
+                                   uintptr_t retaddr);
+target_ulong check_ddc(CPUMIPSState *env, uint32_t perm, uint64_t ddc_offset,
+                       uint32_t len, bool instavail, uintptr_t retpc);
 #ifdef CHERI_MAGIC128
 int  cheri_tag_get_m128(CPUMIPSState *env, target_ulong vaddr, int reg,
         uint64_t *tps, uint64_t *length, hwaddr *ret_paddr, int *prot, uintptr_t pc);

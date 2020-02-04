@@ -24,6 +24,7 @@
 #include "disas/dis-asm.h"
 #include "exec/hwaddr.h"
 #include "exec/memattrs.h"
+#include "exec/memop.h"
 #include "qapi/qapi-types-run-state.h"
 #include "qemu/bitmap.h"
 #include "qemu/rcu_queue.h"
@@ -176,6 +177,12 @@ typedef struct CPUClass {
     void (*do_unaligned_access)(CPUState *cpu, vaddr addr,
                                 MMUAccessType access_type,
                                 int mmu_idx, uintptr_t retaddr);
+    vaddr (*do_intercept_load)(CPUState *cpu, vaddr addr, MemOp op,
+                               MMUAccessType access_type, int mmu_idx,
+                               uintptr_t retaddr);
+    vaddr (*do_intercept_store)(CPUState *cpu, vaddr addr, MemOp op,
+                                MMUAccessType access_type, int mmu_idx,
+                                uintptr_t retaddr);
     void (*do_transaction_failed)(CPUState *cpu, hwaddr physaddr, vaddr addr,
                                   unsigned size, MMUAccessType access_type,
                                   int mmu_idx, MemTxAttrs attrs,
@@ -896,6 +903,28 @@ static inline void cpu_unaligned_access(CPUState *cpu, vaddr addr,
 
     cc->do_unaligned_access(cpu, addr, access_type, mmu_idx, retaddr);
 }
+
+static inline vaddr cpu_intercept_load(CPUState *cpu, vaddr addr, MemOp op,
+                                       MMUAccessType access_type,
+                                       int mmu_idx, uintptr_t retaddr)
+{
+    CPUClass *cc = CPU_GET_CLASS(cpu);
+    if (cc->do_intercept_load)
+        return cc->do_intercept_load(cpu, addr, op, access_type, mmu_idx,
+                                     retaddr);
+    return addr;
+}
+
+static inline vaddr cpu_intercept_store(CPUState *cpu, vaddr addr, MemOp op,
+                                        MMUAccessType access_type, int mmu_idx,
+                                        uintptr_t retaddr) {
+    CPUClass *cc = CPU_GET_CLASS(cpu);
+    if (cc->do_intercept_store)
+        return cc->do_intercept_store(cpu, addr, op, access_type, mmu_idx,
+                                      retaddr);
+    return addr;
+}
+
 
 static inline void cpu_transaction_failed(CPUState *cpu, hwaddr physaddr,
                                           vaddr addr, unsigned size,

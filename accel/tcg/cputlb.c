@@ -1509,13 +1509,24 @@ load_helper(CPUArchState *env, target_ulong addr, TCGMemOpIdx oi,
             FullLoadHelper *full_load)
 {
     uintptr_t mmu_idx = get_mmuidx(oi);
+    const MMUAccessType access_type =
+        code_read ? MMU_INST_FETCH : MMU_DATA_LOAD;
+
+    if (!code_read) {
+        qemu_log_mask(CPU_LOG_MMU | CPU_LOG_INSTR, "\n============= Memory read from 0x" TARGET_FMT_plx "(oi=0x%x, op=0x%x) ==================\n", addr, oi, op);
+    }
+    // Perform $ddc checks
+    addr = cpu_intercept_load(env_cpu(env), addr, op, access_type, mmu_idx,
+                              retaddr);
+    if (!code_read) {
+        qemu_log_mask(CPU_LOG_MMU | CPU_LOG_INSTR, "\n============= Addr after $ddc translation=0x" TARGET_FMT_plx " (%d bytes) ==================\n", addr, memop_size(op));
+    }
+
     uintptr_t index = tlb_index(env, mmu_idx, addr);
     CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
     target_ulong tlb_addr = code_read ? entry->addr_code : entry->addr_read;
     const size_t tlb_off = code_read ?
         offsetof(CPUTLBEntry, addr_code) : offsetof(CPUTLBEntry, addr_read);
-    const MMUAccessType access_type =
-        code_read ? MMU_INST_FETCH : MMU_DATA_LOAD;
     unsigned a_bits = get_alignment_bits(get_memop(oi));
     void *haddr;
     uint64_t res;
@@ -1902,6 +1913,13 @@ store_helper(CPUArchState *env, target_ulong addr, uint64_t val,
              TCGMemOpIdx oi, uintptr_t retaddr, MemOp op)
 {
     uintptr_t mmu_idx = get_mmuidx(oi);
+    // FIXME: do $ddc check here:
+    qemu_log_mask(CPU_LOG_MMU, "============= Memory write to " TARGET_FMT_plx "(oi=0x%x, op=0x%x) ==================\n", addr, oi, op);
+    // Perform $ddc checks
+    addr = cpu_intercept_store(env_cpu(env), addr, op, MMU_DATA_STORE, mmu_idx,
+                               retaddr);
+    qemu_log_mask(CPU_LOG_MMU, "============= Addr after $ddc translation=0x" TARGET_FMT_plx " (%d bytes) ==================\n", addr, memop_size(op));
+
     uintptr_t index = tlb_index(env, mmu_idx, addr);
     CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
     target_ulong tlb_addr = tlb_addr_write(entry);
