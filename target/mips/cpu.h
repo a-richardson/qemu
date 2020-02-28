@@ -619,6 +619,7 @@ struct CPUMIPSState {
 # define PABITS_BASE 32
 #endif
     target_ulong SEGMask;
+    target_ulong VAMask;
     uint64_t PAMask;
 #define PAMASK_BASE ((1ULL << PABITS_BASE) - 1)
 

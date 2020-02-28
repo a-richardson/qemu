@@ -32121,7 +32121,12 @@ void cpu_state_reset(CPUMIPSState *env)
         env->SEGMask |= 3ULL << 62;
     }
 #endif
-#if defined(TARGET_CHERI)
+    // env->SEGMask is used for masking EntryHi. For the capability generation
+    // bits we have to add a new env->VAMask
+    // FIXME: probably better to keep using SEGMask and handling the bits in the
+    // entryhi setter.
+    env->VAMask = env->SEGMask;
+#if defined(TARGET_CHERI) && 0
     env->SEGMask |= (1UL << CP0EnHi_CLGU)
             | (1UL << CP0EnHi_CLGS)
             | (1UL << CP0EnHi_CLGK);

@@ -335,7 +335,7 @@ static int get_physical_address(CPUMIPSState *env, hwaddr *physical,
 #if defined(TARGET_MIPS64)
     } else if (address < 0x4000000000000000ULL) {
         /* xuseg */
-        if (UX && address <= (0x3FFFFFFFFFFFFFFFULL & env->SEGMask)) {
+        if (UX && address <= (0x3FFFFFFFFFFFFFFFULL & env->VAMask)) {
             ret = env->tlb->map_address(env, physical, prot,
                                         real_address, rw, access_type);
         } else {
@@ -344,7 +344,7 @@ static int get_physical_address(CPUMIPSState *env, hwaddr *physical,
     } else if (address < 0x8000000000000000ULL) {
         /* xsseg */
         if ((supervisor_mode || kernel_mode) &&
-            SX && address <= (0x7FFFFFFFFFFFFFFFULL & env->SEGMask)) {
+            SX && address <= (0x7FFFFFFFFFFFFFFFULL & env->VAMask)) {
             ret = env->tlb->map_address(env, physical, prot,
                                         real_address, rw, access_type);
         } else {
@@ -385,7 +385,7 @@ static int get_physical_address(CPUMIPSState *env, hwaddr *physical,
     } else if (address < 0xFFFFFFFF80000000ULL) {
         /* xkseg */
         if (kernel_mode && KX &&
-            address <= (0xFFFFFFFF7FFFFFFFULL & env->SEGMask)) {
+            address <= (0xFFFFFFFF7FFFFFFFULL & env->VAMask)) {
             ret = env->tlb->map_address(env, physical, prot,
                                         real_address, rw, access_type);
         } else {
@@ -1610,6 +1610,12 @@ void mips_cpu_do_interrupt(CPUState *cs)
 #ifdef TARGET_CHERI
     assert(cap_get_cursor(&env->active_tc.PCC) == env->active_tc.PC);
 #endif
+#ifdef CONFIG_MIPS_LOG_INSTR
+    if (unlikely(qemu_loglevel_mask(CPU_LOG_INSTR | CPU_LOG_CVTRACE | CPU_LOG_USER_ONLY)
+                     || env->user_only_tracing_enabled)) {
+        helper_dump_changed_state(env);
+    }
+#endif /* CONFIG_MIPS_LOG_INSTR */
 }
 
 bool mips_cpu_exec_interrupt(CPUState *cs, int interrupt_request)
@@ -1671,7 +1677,7 @@ void r4k_invalidate_tlb(CPUMIPSState *env, int idx, int use_extra)
     if (tlb->V0) {
         addr = tlb->VPN & ~mask;
 #if defined(TARGET_MIPS64)
-        if (addr >= (0xFFFFFFFF80000000ULL & env->SEGMask)) {
+        if (addr >= (0xFFFFFFFF80000000ULL & env->VAMask)) {
             addr |= 0x3FFFFF0000000000ULL;
         }
 #endif
@@ -1684,7 +1690,7 @@ void r4k_invalidate_tlb(CPUMIPSState *env, int idx, int use_extra)
     if (tlb->V1) {
         addr = (tlb->VPN & ~mask) | ((mask >> 1) + 1);
 #if defined(TARGET_MIPS64)
-        if (addr >= (0xFFFFFFFF80000000ULL & env->SEGMask)) {
+        if (addr >= (0xFFFFFFFF80000000ULL & env->VAMask)) {
             addr |= 0x3FFFFF0000000000ULL;
         }
 #endif
