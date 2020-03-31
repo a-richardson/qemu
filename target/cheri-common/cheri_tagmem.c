@@ -362,6 +362,29 @@ void cheri_tag_invalidate(CPUArchState *env, target_ulong vaddr, int32_t size,
     cheri_tag_phys_invalidate(env, block, offset, size, &vaddr);
 }
 
+static void log_tag_bit_cleared(CPUArchState *env, CheriTagBlock *tagblk,
+                                const target_ulong *vaddr,
+                                size_t tag_offset, ram_addr_t ram_addr,
+                                uint64_t tagidx)
+{
+    if (likely(!qemu_loglevel_mask(CPU_LOG_INSTR)))
+        return;
+
+    target_ulong write_vaddr = vaddr ? QEMU_ALIGN_DOWN(*vaddr, CAP_SIZE) +
+                                           (tag_offset << CAP_TAG_SHFT)
+                                     : 0;
+    if (env && vaddr && should_log_mem_access(env, CPU_LOG_INSTR, write_vaddr)) {
+        qemu_log("    Cap Tag Write [" TARGET_FMT_lx "/" RAM_ADDR_FMT
+                 "] %d -> 0\n",
+                 write_vaddr, ram_addr,
+                 tagblock_get_tag(tagblk, CAP_TAGBLK_IDX(tagidx)));
+    } else if (qemu_log_in_addr_range(ram_addr) ||
+               (env && should_log_mem_access(env, CPU_LOG_INSTR, ram_addr))) {
+        qemu_log("    Cap Tag ramaddr Write [" RAM_ADDR_FMT "] %d -> 0\n",
+                 ram_addr, tagblock_get_tag(tagblk, CAP_TAGBLK_IDX(tagidx)));
+    }
+}
+
 static inline void clear_tag_block(CPUArchState *env, CheriTagBlock *tagblk,
                                    uint64_t first_tagidx, uint64_t cur_tagidx,
                                    uint64_t max_tagidx,
@@ -379,23 +402,9 @@ static inline void clear_tag_block(CPUArchState *env, CheriTagBlock *tagblk,
     if (unlikely(qemu_loglevel_mask(CPU_LOG_INSTR))) {
         for (size_t i = 0; i < clear_count; i++) {
             ram_addr_t ram_addr = (cur_tagidx + i) << CAP_TAG_SHFT;
-            target_ulong write_vaddr =
-                vaddr ? QEMU_ALIGN_DOWN(*vaddr, CAP_SIZE) +
-                            ((cur_tagidx + i - first_tagidx) << CAP_TAG_SHFT)
-                      : 0;
-            if (env && vaddr &&
-                should_log_mem_access(env, CPU_LOG_INSTR, write_vaddr)) {
-                qemu_log("    Cap Tag Write [" TARGET_FMT_lx "/" RAM_ADDR_FMT
-                         "] %d -> 0\n",
-                         write_vaddr, ram_addr,
-                         tagblock_get_tag(tagblk, start_blockidx + i));
-            } else if (qemu_log_in_addr_range(ram_addr) ||
-                       (env &&
-                        should_log_mem_access(env, CPU_LOG_INSTR, ram_addr))) {
-                qemu_log(
-                    "    Cap Tag ramaddr Write [" RAM_ADDR_FMT "] %d -> 0\n",
-                    ram_addr, tagblock_get_tag(tagblk, start_blockidx + i));
-            }
+            size_t tag_offset = cur_tagidx + i - first_tagidx;
+            log_tag_bit_cleared(env, tagblk, vaddr, tag_offset, ram_addr,
+                                cur_tagidx + i);
         }
     }
     // changed |= tagblock_get_tag(tagblk, tagblk_index);
@@ -417,14 +426,21 @@ void cheri_tag_phys_invalidate(CPUArchState *env, RAMBlock *ram,
     ram_addr_t startaddr = QEMU_ALIGN_DOWN(ram_offset, CAP_SIZE);
     const uint64_t first_tagidx = startaddr >> CAP_TAG_SHFT;
     const uint64_t max_tagidx = (endaddr - 1) >> CAP_TAG_SHFT;
-    // TODO: common case is one tag:
-
-    for (uint64_t tagidx = first_tagidx; tagidx <= max_tagidx;
-         tagidx += CAP_TAGBLK_SIZE) {
-        CheriTagBlock *tagblk = cheri_tag_block(tagidx, ram);
-        if (tagblk != NULL) {
-            clear_tag_block(env, tagblk, first_tagidx, tagidx, max_tagidx,
-                            vaddr);
+    // The common case is clearing one tag:
+    if (first_tagidx == max_tagidx) {
+        CheriTagBlock *tagblk = cheri_tag_block(first_tagidx, ram);
+        if (tagblk) {
+            log_tag_bit_cleared(env, tagblk, vaddr, 0, startaddr, first_tagidx);
+            tagblock_clear_tag(tagblk, CAP_TAGBLK_IDX(first_tagidx));
+        }
+    } else {
+        for (uint64_t tagidx = first_tagidx; tagidx <= max_tagidx;
+             tagidx += CAP_TAGBLK_SIZE) {
+            CheriTagBlock *tagblk = cheri_tag_block(tagidx, ram);
+            if (tagblk != NULL) {
+                clear_tag_block(env, tagblk, first_tagidx, tagidx, max_tagidx,
+                                vaddr);
+            }
         }
     }
 
