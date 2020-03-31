@@ -102,12 +102,8 @@ static inline size_t num_tagblocks(RAMBlock* ram)
     return result;
 }
 
-#define TAGMEM_USE_BITMAP 0
+#define TAGMEM_USE_BITMAP 1
 #if TAGMEM_USE_BITMAP
-#define _tag_bit_get test_bit
-#define _tag_bit_set set_bit
-#define _tag_bit_clear clear_bit
-#define _tag_bit_range_clear bitmap_test_and_clear_atomic
 // Use one bit per tag:
 typedef struct CheriTagBlock {
     DECLARE_BITMAP(tag_bitmap, CAP_TAGBLK_SIZE);
@@ -158,7 +154,7 @@ static inline QEMU_ALWAYS_INLINE bool tagblock_get_tag(CheriTagBlock *block,
                                                        size_t block_index)
 {
 #if TAGMEM_USE_BITMAP
-    return block ? _tag_bit_get(block_index, block->tag_bitmap) : false;
+    return block ? test_bit(block_index, block->tag_bitmap) : false;
 #else
     return block ? block->_tags[block_index] : false;
 #endif
@@ -168,7 +164,7 @@ static inline QEMU_ALWAYS_INLINE void tagblock_set_tag(CheriTagBlock *block,
                                                        size_t block_index)
 {
 #if TAGMEM_USE_BITMAP
-    _tag_bit_set(block_index, block->tag_bitmap);
+    set_bit(block_index, block->tag_bitmap);
 #else
     block->_tags[block_index] = true;
 #endif
@@ -178,7 +174,7 @@ static inline QEMU_ALWAYS_INLINE void tagblock_clear_tag(CheriTagBlock *block,
                                                          size_t block_index)
 {
 #if TAGMEM_USE_BITMAP
-    _tag_bit_clear(block_index, block->tag_bitmap);
+    clear_bit(block_index, block->tag_bitmap);
 #else
     block->_tags[block_index] = false;
 #endif
