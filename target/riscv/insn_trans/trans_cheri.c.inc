@@ -208,8 +208,6 @@ static bool trans_cspecialrw(DisasContext *ctx, arg_cspecialrw *a)
 // Three operand (cap cap int)
 TRANSLATE_CAP_CAP_INT(candperm)
 TRANSLATE_CAP_CAP_INT(cfromptr)
-TRANSLATE_CAP_CAP_INT(cincoffset)
-TRANSLATE_CAP_CAP_INT(csetaddr)
 TRANSLATE_CAP_CAP_INT(csetbounds)
 TRANSLATE_CAP_CAP_INT(csetboundsexact)
 TRANSLATE_CAP_CAP_INT(csetflags)
@@ -238,15 +236,57 @@ static inline bool gen_cheri_cap_cap_imm(int cd, int cs1, target_long imm,
 #define TRANSLATE_CAP_CAP_IMM(name)                                            \
     TRANSLATE_MAYBE_TRAP(name, gen_cheri_cap_cap_imm, a->rd, a->rs1, a->imm)
 
-static bool trans_cincoffsetimm(DisasContext *ctx, arg_cincoffsetimm *a)
+static inline void update_cap_cursor_from(DisasContext *ctx, TCGv new_cursor,
+                                          int cd, int cs1)
 {
-    return gen_cheri_cap_cap_imm(a->rd, a->rs1, a->imm, &gen_helper_cincoffset);
+    // Might need to move to a temp so that cs1 is not clobbered.
+    uint32_t cd_temp = cd == cs1 ? SCRATCH_REG_NUM : cd;
+    gen_move_cap_gp_gp(ctx, cd_temp, cs1);
+    gen_cap_set_cursor(ctx, cd_temp, new_cursor, false);
+    if (cd == cs1) {
+        gen_move_cap_gp_gp(ctx, cd, cd_temp);
+    }
+    gen_reg_modified_cap(ctx, cd);
 }
 
-static bool trans_csetboundsimm(DisasContext *ctx, arg_cincoffsetimm *a)
+static bool trans_cincoffsetimm(DisasContext *ctx, arg_cincoffsetimm *a)
+{
+    TCGv new_cursor = tcg_temp_new();
+    gen_cap_get_cursor(ctx, a->rs1, new_cursor);
+    tcg_gen_addi_tl(new_cursor, new_cursor, a->imm);
+    update_cap_cursor_from(ctx, new_cursor, a->rd, a->rs1);
+    tcg_temp_free(new_cursor);
+    return true;
+}
+
+static bool trans_csetboundsimm(DisasContext *ctx, arg_csetboundsimm *a)
 {
     tcg_debug_assert(a->imm >= 0);
     return gen_cheri_cap_cap_imm(a->rd, a->rs1, a->imm, &gen_helper_csetbounds);
+}
+
+// CIncOffset is one of the most common operations, so we try to execute it
+// without helper calls when possible.
+static bool trans_cincoffset(DisasContext *ctx, arg_cincoffset *a)
+{
+    TCGv new_cursor = tcg_temp_new();
+    TCGv increment = tcg_temp_new();
+    gen_cap_get_cursor(ctx, a->rs1, new_cursor);
+    gen_get_gpr(increment, a->rs2);
+    tcg_gen_add_tl(new_cursor, new_cursor, increment);
+    update_cap_cursor_from(ctx, new_cursor, a->rd, a->rs1);
+    tcg_temp_free(increment);
+    tcg_temp_free(new_cursor);
+    return true;
+}
+
+static bool trans_csetaddr(DisasContext *ctx, arg_csetaddr *a)
+{
+    TCGv new_cursor = tcg_temp_new();
+    gen_get_gpr(new_cursor, a->rs2);
+    update_cap_cursor_from(ctx, new_cursor, a->rd, a->rs1);
+    tcg_temp_free(new_cursor);
+    return true;
 }
 
 /// Control-flow instructions

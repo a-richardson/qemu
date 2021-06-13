@@ -125,14 +125,15 @@ TCGv_i64 cpu_reg(DisasContext *s, int reg);
 #define MERGED_FILE 1
 
 #elif defined(TARGET_RISCV)
-
+static inline TCGv _get_gpr_global_tcgv(DisasContext *ctx, int reg);
 #define DDC_ENV_OFFSET offsetof(CPUArchState, DDC)
-#define target_get_gpr_global(ctx, reg) (assert(0), (TCGv_i64)NULL)
+#define target_get_gpr_global(ctx, reg) _get_gpr_global_tcgv(ctx, reg)
 #define target_get_gpr(ctx, t, reg) gen_get_gpr((TCGv)t, reg)
-    static inline void _gen_set_gpr(DisasContext *ctx, int reg_num_dst, TCGv t,
-                                    bool clear_pesbt);
+static inline void _gen_set_gpr(DisasContext *ctx, int reg_num_dst, TCGv t,
+                                bool clear_pesbt);
 #define target_set_gpr(ctx, reg, t) _gen_set_gpr(ctx, reg, (TCGv)t, false)
 #define MERGED_FILE 1
+#define ENABLE_STATIC_CAP_OPTS 1
 
 #else
 #error "Don't know how to fetch a GPR value"

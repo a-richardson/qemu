@@ -219,6 +219,16 @@ static inline void _gen_get_gpr(TCGv t, int reg_num)
     }
 }
 
+static inline TCGv _get_gpr_global_tcgv(DisasContext *ctx, int reg) {
+    tcg_debug_assert(reg > 0 && reg < 32 && "Can't use this for the zero reg");
+#ifdef TARGET_CHERI
+    return _cpu_cursors_do_not_access_directly[reg];
+#else
+    return cpu_gpr[reg];
+#endif
+}
+
+
 #ifdef CONFIG_RVFI_DII
 //#define gen_get_gpr(t, reg_num, field_prefix)                                  \
 //    do {                                                                       \
