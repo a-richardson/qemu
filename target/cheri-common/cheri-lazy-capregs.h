@@ -47,15 +47,11 @@
 
 static inline GPCapRegs *cheri_get_gpcrs(CPUArchState *env);
 
-static inline uint64_t capreg_state_set_to_integer_mask(unsigned reg)
-{
-    return ~(UINT64_C(3) << (reg * 2));
-}
-
-static inline CapRegState get_capreg_state(const GPCapRegs *gpcrs, unsigned reg)
+static inline QEMU_ALWAYS_INLINE CapRegState
+get_capreg_state(const GPCapRegs *gpcrs, unsigned reg)
 {
     cheri_debug_assert(reg < 32);
-    return (CapRegState)extract64(gpcrs->capreg_state, reg * 2, 2);
+    return (CapRegState)gpcrs->capreg_state[reg];
 }
 
 static inline void sanity_check_capreg(GPCapRegs *gpcrs, unsigned regnum)
@@ -109,10 +105,8 @@ static inline void set_capreg_state(GPCapRegs *gpcrs, unsigned regnum,
                            "NULL is always fully decompressed");
         return;
     }
-
     cheri_debug_assert(regnum < 32);
-    gpcrs->capreg_state =
-        deposit64(gpcrs->capreg_state, regnum * 2, 2, new_state);
+    gpcrs->capreg_state[regnum] = new_state;
     // Check that the compressed and decompressed caps are in sync
     sanity_check_capreg(gpcrs, regnum);
 }
@@ -405,7 +399,9 @@ static inline void reset_capregs(CPUArchState *env)
 {
     // Reset all to NULL:
     GPCapRegs *gpcrs = cheri_get_gpcrs(env);
-    gpcrs->capreg_state = UINT64_MAX; // All decompressed values
+    for (size_t i = 0; i < ARRAY_SIZE(gpcrs->capreg_state); i++) {
+        gpcrs->capreg_state[i] = CREG_FULLY_DECOMPRESSED;
+    }
     for (size_t i = 0; i < ARRAY_SIZE(gpcrs->decompressed); i++) {
         const cap_register_t* newval = null_capability(&gpcrs->decompressed[i]);
         // Register should be fully decompressed
@@ -420,7 +416,9 @@ static inline void set_max_perms_capregs(CPUArchState *env)
 {
     // Reset all to max perms (except NULL of course):
     GPCapRegs *gpcrs = cheri_get_gpcrs(env);
-    gpcrs->capreg_state = UINT64_MAX; // All decompressed values
+    for (size_t i = 0; i < ARRAY_SIZE(gpcrs->capreg_state); i++) {
+        gpcrs->capreg_state[i] = CREG_FULLY_DECOMPRESSED;
+    }
     null_capability(&gpcrs->decompressed[NULL_CAPREG_INDEX]);
     sanity_check_capreg(gpcrs, NULL_CAPREG_INDEX);
     for (size_t i = 0; i < ARRAY_SIZE(gpcrs->decompressed); i++) {
