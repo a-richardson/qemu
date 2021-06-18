@@ -1566,10 +1566,10 @@ static void notdirty_write(CPUState *cpu, vaddr mem_vaddr, unsigned size,
     }
 }
 
-static int probe_access_internal(CPUArchState *env, target_ulong addr,
-                                 int fault_size, MMUAccessType access_type,
-                                 int mmu_idx, bool nonfault,
-                                 void **phost, uintptr_t retaddr)
+static inline QEMU_ALWAYS_INLINE int
+probe_access_internal(CPUArchState *env, target_ulong addr, int fault_size,
+                      MMUAccessType access_type, int mmu_idx, bool nonfault,
+                      void **phost, uintptr_t retaddr)
 {
     uintptr_t index = tlb_index(env, mmu_idx, addr);
     CPUTLBEntry *entry = tlb_entry(env, mmu_idx, addr);
@@ -1662,6 +1662,7 @@ int probe_access_flags(CPUArchState *env, target_ulong addr,
     return flags;
 }
 
+QEMU_ALWAYS_INLINE
 void *probe_access(CPUArchState *env, target_ulong addr, int size,
                    MMUAccessType access_type, int mmu_idx, uintptr_t retaddr)
 {
@@ -1702,6 +1703,8 @@ void *probe_access(CPUArchState *env, target_ulong addr, int size,
 
     return host;
 }
+
+#include "probe-access.inc.c"
 
 void *tlb_vaddr_to_host(CPUArchState *env, abi_ptr addr,
                         MMUAccessType access_type, int mmu_idx)
