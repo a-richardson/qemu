@@ -93,7 +93,7 @@ typedef struct GPCapRegs {
     // 34'th is also used as a temporary when side-effect free scratch space is
     // needed. These special extra registers are always in state decompressed.
     aligned_cap_register_t decompressed[NUM_LAZY_CAP_REGS];
-    uint64_t capreg_state; // 32 times CapRegState compressed to one uint64_t
+    /*enum CapRegState */uint8_t capreg_state[NUM_LAZY_CAP_REGS] QEMU_ALIGNED(64);
 } GPCapRegs;
 
 static inline cap_register_t *get_cap_in_gpregs(GPCapRegs *gpcrs, size_t index)
