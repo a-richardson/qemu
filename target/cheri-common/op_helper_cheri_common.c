@@ -1172,11 +1172,11 @@ target_ulong CHERI_HELPER_IMPL(cap_rmw_check(CPUArchState *env, uint32_t cb,
 }
 
 /// Capability loads and stores
-void CHERI_HELPER_IMPL(load_cap_via_cap(CPUArchState *env, cap_register_t *dst,
-                                        const cap_register_t *base,
-                                        target_ulong offset))
+void CHERI_HELPER_IMPL(load_cap_via_cap(CPUArchState *env, uint32_t cd,
+                                        uint32_t cb, target_ulong offset))
 {
     GET_HOST_RETPC();
+    const cap_register_t *cbp = get_load_store_base_cap(env, cb);
 
     const target_ulong addr = cap_check_common_reg(
         perms_for_load(), env, cb, offset, CHERI_CAP_SIZE, _host_return_address,

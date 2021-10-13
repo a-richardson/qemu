@@ -67,12 +67,6 @@
 # define dh_alias_cap_checked_ptr cap_checked_ptr
 # define dh_ctype_cap_checked_ptr dh_ctype_tl
 # define dh_ctype_env CPUArchState *
-#ifdef TARGET_CHERI
-# define dh_alias_creg ptr
-# define dh_ctype_creg const cap_register_t *
-# define dh_alias_creg_out ptr
-# define dh_ctype_creg_out cap_register_t *
-#endif
 #endif
 
 /* We can't use glue() here because it falls foul of C preprocessor
@@ -132,8 +126,6 @@
 #define dh_is_signed_ptr 0
 #define dh_is_signed_cptr dh_is_signed_ptr
 #define dh_is_signed_env dh_is_signed_ptr
-#define dh_is_signed_creg dh_is_signed_cptr
-#define dh_is_signed_creg_out dh_is_signed_ptr
 #define dh_is_signed(t) dh_is_signed_##t
 
 #define dh_callflag_i32  0
