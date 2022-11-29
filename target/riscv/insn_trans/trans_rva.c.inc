@@ -51,10 +51,33 @@ static inline bool gen_sc_impl(DisasContext *ctx, TCGv_cap_checked_ptr addr,
     TCGv src1 = tcg_temp_new();
     TCGv src2 = tcg_temp_new();
     TCGv dat = tcg_temp_new();
+    TCGv_cap_checked_ptr addr_lifetime_ext = tcg_temp_local_new_cap_checked();
     TCGLabel *l1 = gen_new_label();
     TCGLabel *l2 = gen_new_label();
 
-    tcg_gen_brcond_cap_checked(TCG_COND_NE, load_res, addr, l1);
+    /*
+     * Alignment must be checked before checking for reservation address matches
+     * since we want to emit an error for misaligned accesses to match the
+     * RISC-V specification: "If the address is not naturally aligned, an
+     * address-misaligned exception or an access-fault exception will be
+     * generated".
+     */
+    cheri_debug_assert((mop & MO_ALIGN) && "store-conditional must be aligned");
+    tcg_gen_mov_cap_checked(addr_lifetime_ext, addr);
+    if (memop_size(mop) > 1) {
+        tcg_gen_andi_tl(dat, (TCGv)addr_lifetime_ext, memop_size(mop) - 1);
+        TCGLabel *not_misaligned = gen_new_label();
+        tcg_gen_brcondi_tl(TCG_COND_EQ, dat, 0x0, not_misaligned);
+        tcg_gen_st_tl((TCGv)addr_lifetime_ext, cpu_env,
+                      offsetof(CPURISCVState, badaddr));
+        gen_update_cpu_pc(ctx->base.pc_next);
+        TCGv_i32 helper_tmp = tcg_const_i32(RISCV_EXCP_STORE_AMO_ADDR_MIS);
+        gen_helper_raise_exception(cpu_env, helper_tmp);
+        tcg_temp_free_i32(helper_tmp);
+        gen_set_label(not_misaligned);
+    }
+
+    tcg_gen_brcond_cap_checked(TCG_COND_NE, load_res, addr_lifetime_ext, l1);
     gen_get_gpr(src2, a->rs2);
     /*
      * Note that the TCG atomic primitives are SC,
@@ -85,6 +108,7 @@ static inline bool gen_sc_impl(DisasContext *ctx, TCGv_cap_checked_ptr addr,
     tcg_temp_free(dat);
     tcg_temp_free(src1);
     tcg_temp_free(src2);
+    tcg_temp_free_cap_checked(addr_lifetime_ext);
     return true;
 }
 
@@ -105,6 +129,7 @@ static bool gen_amo(DisasContext *ctx, arg_atomic *a,
     TCGv src2 = tcg_temp_new();
     gen_get_gpr(src2, a->rs2);
 
+    cheri_debug_assert((mop & MO_ALIGN) && "RMW AMOs must be aligned");
     (*func)(src2, src1, src2, ctx->mem_idx, mop);
 
     gen_set_gpr(a->rd, src2);
