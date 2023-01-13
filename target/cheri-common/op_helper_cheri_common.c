@@ -71,6 +71,8 @@ static DEFINE_CHERI_STAT(misc);
 /*
  * To keep the refactor minimal we make use of a few ugly macros to change
  * exception behavior to tag clearing.
+ * These semantics are used for Morello and CHERI-RISC-V, whereas (legacy)
+ * CHERI-MIPS raises exceptions on invalid modifications.
  */
 #if CHERI_TAG_CLEAR_ON_INVALID
 
@@ -974,6 +976,10 @@ static void do_setbounds(bool must_be_exact, CPUArchState *env, uint32_t cd,
     }
 #endif
     cap_register_t result = *cbp;
+    if (!RESULT_VALID) {
+        /* Detag sealed inputs now so the cap lib can check for valid inputs */
+        result.cr_tag = 0;
+    }
     /*
      * With compressed capabilities we may need to increase the range of
      * memory addresses to be wider than requested so it is
