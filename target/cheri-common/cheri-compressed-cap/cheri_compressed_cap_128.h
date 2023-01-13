@@ -127,7 +127,7 @@ enum _CC_N(OTypes) {
     _CC_SPECIAL_OTYPE(OTYPE_SENTRY, 1),
     _CC_SPECIAL_OTYPE(OTYPE_INDIRECT_PAIR, 2),
     _CC_SPECIAL_OTYPE(OTYPE_INDIRECT_SENTRY, 3),
-    _CC_SPECIAL_OTYPE(OTYPE_RESERVED_LAST, 15),
+    _CC_SPECIAL_OTYPE(OTYPE_RESERVED_LAST, 3),
     /*
      * We allocate otypes subtracting from the maximum value, so the smallest is
      * actually the one with the largest _CC_SPECIAL_OTYPE() argument.
