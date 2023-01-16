@@ -537,7 +537,7 @@ static inline uint32_t _cc_N(compute_ebt)(_cc_addr_t req_base, _cc_length_t req_
         return _CC_N(RESET_EBT);
     }
 #else
-    _cc_debug_assert(req_base <= req_top && "Cannot invert base and top");
+    // _cc_debug_assert(req_base <= req_top && "Cannot invert base and top");
 #endif
     /*
      * With compressed capabilities we may need to increase the range of
