@@ -252,23 +252,24 @@ static bool trans_csetboundsimm(DisasContext *ctx, arg_cincoffsetimm *a)
 /// Control-flow instructions
 static void gen_cjal(DisasContext *ctx, int rd, target_ulong imm)
 {
-    target_ulong next_pc;
+    target_ulong next_pc = ctx->base.pc_next + imm;
 
-    /* check misaligned: */
-    next_pc = ctx->base.pc_next + imm;
-    if (!has_ext(ctx, RVC)) {
-        if ((next_pc & 0x3) != 0) {
-            gen_exception_inst_addr_mis(ctx);
-            return;
-        }
-    }
     TCGv_i32 dst = tcg_const_i32(rd);
-    TCGv new_cursor = tcg_const_tl(ctx->pc_succ_insn);
-    gen_helper_auipcc(cpu_env, dst, new_cursor);
-    tcg_temp_free(new_cursor);
+    TCGv target_addr = tcg_const_tl(next_pc);
+    TCGv immv = tcg_const_tl(imm);
+    TCGv link_addr = tcg_const_tl(ctx->pc_succ_insn);
+    /*
+     * helper_cjal() checks for misalignment and capability bounds. Having
+     * immediate as a separate argument allows skipping gen_update_cpu_pc().
+     */
+    gen_helper_cjal(cpu_env, dst, target_addr, immv, link_addr);
+    tcg_temp_free(link_addr);
+    tcg_temp_free(immv);
+    tcg_temp_free(target_addr);
     tcg_temp_free_i32(dst);
 
-    gen_goto_tb(ctx, 0, ctx->base.pc_next + imm, /*bounds_check=*/true); /* must use this for safety */
+    /* No bounds check needed here since we did it in helper_cjal(). */
+    gen_goto_tb(ctx, 0, ctx->base.pc_next + imm, false);
     ctx->base.is_jmp = DISAS_NORETURN;
 }
 
