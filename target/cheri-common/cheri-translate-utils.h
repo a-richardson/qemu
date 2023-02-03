@@ -225,7 +225,14 @@ static inline void _generate_special_checked_ptr(
     CheriTbFlags full_as_flags =
         use_ddc ? TB_FLAG_CHERI_DDC_FULL_AS : TB_FLAG_CHERI_PCC_FULL_AS;
     bool do_checks = !have_cheri_tb_flags(ctx, full_as_flags);
-#ifdef BOUNDS_DO_NOT_WRAP
+    /*
+     * FIXME: this is a rather gross hack: for RVFI-DII, we enable the bounds
+     * checks even for full address space DDC to match sail, but by default
+     * we skip it since it results in a huge speedup and the only observable
+     * difference is whether we get a CHERI trap or a bad store address trap.
+     */
+#if defined(BOUNDS_DO_NOT_WRAP) ||                                             \
+    (defined(TARGET_RISCV) && defined(CONFIG_RVFI_DII))
     do_checks = true;
 #endif
     if (unlikely(do_checks)) {
