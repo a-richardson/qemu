@@ -514,6 +514,7 @@ typedef enum {
     rv_op_cmove,
     rv_op_ccleartag,
     rv_op_cjalr,
+    rv_op_cgethigh,
     rv_op_cgetaddr,
     rv_op_csealentry,
     rv_op_cloadtags,
@@ -1232,6 +1233,7 @@ const rv_opcode_data opcode_data[] = {
     [rv_op_ccleartag] = { "ccleartag", rv_codec_r, rv_fmt_cd_cs1, NULL, 0, 0, 0 },
     [rv_op_cjalr] = { "cjalr", rv_codec_r, rv_fmt_cd_cs1, NULL, 0, 0, 0 },
     [rv_op_cgetaddr] = { "cgetaddr", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
+    [rv_op_cgethigh] = { "cgetaddr", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
     [rv_op_csealentry] = { "csealentry", rv_codec_r, rv_fmt_cd_cs1, NULL, 0, 0, 0 },
     [rv_op_cloadtags] = { "cloadtags", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
 
@@ -1503,6 +1505,7 @@ static rv_opcode decode_cheri_two_op(unsigned func) {
     case 0b01111: return rv_op_cgetaddr;
     case 0b10001: return rv_op_csealentry;
     case 0b10010: return rv_op_cloadtags;
+    case 0b10111: return rv_op_cgethigh;
     default: return rv_op_illegal;
     }
 }
@@ -1530,6 +1533,7 @@ static rv_opcode decode_cheri_inst(rv_inst inst) {
     CHERI_THREEOP_CASE(cincoffset,  0010001,  ..... ..... 000 ..... 1011011 @r)
     CHERI_THREEOP_CASE(ctoptr,      0010010,  ..... ..... 000 ..... 1011011 @r)
     CHERI_THREEOP_CASE(cfromptr,    0010011,  ..... ..... 000 ..... 1011011 @r)
+    CHERI_THREEOP_CASE(csethigh,    0010100,  ..... ..... 000 ..... 1011011 @r)
     CHERI_THREEOP_CASE(csub,        0010100,  ..... ..... 000 ..... 1011011 @r)
     // 0010101-0011100 unused
     CHERI_THREEOP_CASE(cbuildcap,   0011101,  ..... ..... 000 ..... 1011011 @r)
