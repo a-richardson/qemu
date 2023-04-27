@@ -310,7 +310,9 @@ target_ulong CHERI_HELPER_IMPL(cgetsealed(CPUArchState *env, uint32_t cb))
     const cap_register_t *cbp = get_readonly_capreg(env, cb);
     if (cap_is_sealed_with_type(cbp) || cap_is_sealed_entry(cbp))
         return (target_ulong)1;
-    assert(cap_is_unsealed(cbp) && "Unknown reserved otype?");
+    // assert(cap_is_unsealed(cbp) && "Unknown reserved otype?");
+    if (!cap_is_unsealed(cbp))
+        return 2;
     return (target_ulong)0;
 }
 
