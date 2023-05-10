@@ -99,7 +99,7 @@ static inline bool is_cap_sealed(const cap_register_t *cp)
 static inline QEMU_ALWAYS_INLINE bool
 try_set_cap_cursor(CPUArchState *env, const cap_register_t *cptr,
                    int regnum_src, int regnum_dst, target_ulong new_addr,
-                   uintptr_t retpc,
+                   bool precise_repr_check, uintptr_t retpc,
                    struct oob_stats_info *oob_info ATTRIBUTE_UNUSED)
 {
     DEFINE_RESULT_VALID;
@@ -126,7 +126,9 @@ try_set_cap_cursor(CPUArchState *env, const cap_register_t *cptr,
     }
     /* Result is out-of-bounds, check if it's representable. */
 #endif
-    if (unlikely(!is_representable_cap_with_addr(cptr, new_addr))) {
+    if (unlikely(!CAP_cc(is_representable_with_addr)(
+            cptr, new_addr,
+            /*slow_representable_check=*/precise_repr_check))) {
         if (cptr->cr_tag) {
             became_unrepresentable(env, regnum_dst, oob_info, retpc);
         }
@@ -564,7 +566,7 @@ static target_ulong crap_impl(target_ulong len) {
     // capability and returning the resulting length
     cap_register_t tmpcap;
     set_max_perms_capability(&tmpcap, 0);
-    CAP_cc(setbounds)(&tmpcap, 0, len);
+    CAP_cc(setbounds)(&tmpcap, len);
     // Previously QEMU return (1<<64)-1 for a representable length of 1<<64
     // (similar to CGetLen), but all other implementations just strip the
     // high bit instead. Note: This allows a subsequent CSetBoundsExact to
@@ -732,8 +734,7 @@ static void cseal_common(CPUArchState *env, uint32_t cd, uint32_t cs,
     } else if (ct_base_plus_offset > CAP_MAX_REPRESENTABLE_OTYPE ||
                cap_otype_is_reserved(ct_base_plus_offset)) {
         raise_cheri_exception(env, CapEx_LengthViolation, ct);
-    } else if (!is_representable_cap_when_sealed_with_addr(
-                   csp, cap_get_cursor(csp))) {
+    } else if (!is_representable_cap_with_addr(csp, cap_get_cursor(csp))) {
         raise_cheri_exception(env, CapEx_InexactBounds, cs);
     } else {
         cap_register_t result = *csp;
@@ -836,7 +837,10 @@ cincoffset_impl(CPUArchState *env, uint32_t cd, uint32_t cb, target_ulong rt,
      * CIncOffset: Increase Offset
      */
     target_ulong new_addr = cap_get_cursor(cbp) + rt;
-    try_set_cap_cursor(env, cbp, cb, cd, new_addr, retpc, oob_info);
+    // CIncOffset and CSetOffset use the approximate fast representability
+    // check rather than a precise one.
+    try_set_cap_cursor(env, cbp, cb, cd, new_addr,
+                       /*precise_repr_check=*/false, retpc, oob_info);
 }
 
 void CHERI_HELPER_IMPL(candperm(CPUArchState *env, uint32_t cd, uint32_t cb,
@@ -873,16 +877,17 @@ void CHERI_HELPER_IMPL(candaddr(CPUArchState *env, uint32_t cd, uint32_t cb,
 {
     target_ulong cursor = get_capreg_cursor(env, cb);
     target_ulong target_addr = cursor & rt;
-    target_ulong diff = target_addr - cursor;
-    cincoffset_impl(env, cd, cb, diff, GETPC(), OOB_INFO(candaddr));
+    try_set_cap_cursor(env, get_readonly_capreg(env, cb), cb, cd, target_addr,
+                       /*precise_repr_check=*/true, GETPC(),
+                       OOB_INFO(candaddr));
 }
 
 void CHERI_HELPER_IMPL(csetaddr(CPUArchState *env, uint32_t cd, uint32_t cb,
                                 target_ulong target_addr))
 {
-    target_ulong cursor = get_capreg_cursor(env, cb);
-    target_ulong diff = target_addr - cursor;
-    cincoffset_impl(env, cd, cb, diff, GETPC(), OOB_INFO(csetaddr));
+    try_set_cap_cursor(env, get_readonly_capreg(env, cb), cb, cd, target_addr,
+                       /*precise_repr_check=*/true, GETPC(),
+                       OOB_INFO(csetaddr));
 }
 
 void CHERI_HELPER_IMPL(csetoffset(CPUArchState *env, uint32_t cd, uint32_t cb,
@@ -941,53 +946,38 @@ static void do_setbounds(bool must_be_exact, CPUArchState *env, uint32_t cd,
                          uintptr_t _host_return_address)
 {
     const cap_register_t *cbp = get_readonly_capreg(env, cb);
-    target_ulong new_base = cap_get_cursor(cbp);
 
-#ifdef TARGET_AARCH64
-    if (CAP_cc(cap_bounds_uses_value)(cbp))
-        new_base = CAP_cc(cap_bounds_address)(cbp);
-#endif
-
-    cap_length_t new_top = (cap_length_t)new_base + length; // 65 bits
     DEFINE_RESULT_VALID;
+    cap_register_t result = *cbp;
     /*
      * CSetBounds: Set Bounds
+     */
+#ifndef TARGET_AARCH64
+    /*
+     * The setbounds call will invalidate any results with larger bounds than
+     * the input, but for trapping architectures we still need to perform these
+     * checks here.
      */
     if (!cbp->cr_tag) {
         raise_cheri_exception_or_invalidate(env, CapEx_TagViolation, cb);
     } else if (is_cap_sealed(cbp)) {
         raise_cheri_exception_or_invalidate(env, CapEx_SealViolation, cb);
-    }
-#ifndef TARGET_AARCH64
-    /*
-     * On morello this check needs doing later as the resulting bounds may
-     * not be exact, but then break monotonicity.
-     */
-    else if (new_base < cbp->cr_base) {
-        raise_cheri_exception_or_invalidate(env, CapEx_LengthViolation, cb);
-    } else if (new_top > cap_get_top_full(cbp)) {
+    } else if (!cap_is_in_bounds(cbp, cap_get_cursor(cbp), length)) {
         raise_cheri_exception_or_invalidate(env, CapEx_LengthViolation, cb);
     }
+    const bool exact = CAP_cc(checked_setbounds)(&result, length);
+#else
+    const bool exact = CAP_cc(setbounds)(&result, length);
 #endif
-    cap_register_t result = *cbp;
     /*
      * With compressed capabilities we may need to increase the range of
-     * memory addresses to be wider than requested so it is
-     * representable.
+     * memory addresses to be wider than requested so it is representable.
      */
-    const bool exact = CAP_cc(setbounds)(&result, new_base, new_top);
     if (!exact)
         env->statcounters_imprecise_setbounds++;
     if (must_be_exact && !exact) {
         raise_cheri_exception_or_invalidate(env, CapEx_InexactBounds, cb);
     }
-
-#ifdef TARGET_AARCH64
-    if ((result.cr_base < cbp->cr_base) ||
-        (cap_get_top_full(&result) > cap_get_top_full(cbp))) {
-        RESULT_VALID = false;
-    }
-#endif
 
     if (RESULT_VALID) {
         assert(cap_is_representable(&result) &&
