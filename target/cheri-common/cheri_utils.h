@@ -370,6 +370,7 @@ static inline cap_register_t *cap_mark_unrepresentable(target_ulong addr,
     target_ulong pesbt = CAP_cc(compress_raw)(cr);
     CAP_cc(decompress_raw)(pesbt, addr, false, cr);
 #endif
+    cr->cr_extra = CREG_FULLY_DECOMPRESSED;
     return cr;
 }
 
