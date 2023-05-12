@@ -992,12 +992,14 @@ static void do_setbounds(bool must_be_exact, CPUArchState *env, uint32_t cd,
     if (RESULT_VALID) {
         assert(cap_is_representable(&result) &&
                "CSetBounds must create a representable capability");
-        assert(result.cr_base >= cbp->cr_base &&
-               "CSetBounds broke monotonicity (base)");
-        assert(cap_get_length_full(&result) <= cap_get_length_full(cbp) &&
-               "CSetBounds broke monotonicity (length)");
-        assert(cap_get_top_full(&result) <= cap_get_top_full(cbp) &&
-               "CSetBounds broke monotonicity (top)");
+        if (result.cr_tag) {
+            assert(result.cr_base >= cbp->cr_base &&
+                   "CSetBounds broke monotonicity (base)");
+            assert(cap_get_length_full(&result) <= cap_get_length_full(cbp) &&
+                   "CSetBounds broke monotonicity (length)");
+            assert(cap_get_top_full(&result) <= cap_get_top_full(cbp) &&
+                   "CSetBounds broke monotonicity (top)");
+        }
     } else {
         result.cr_tag = 0;
     }
