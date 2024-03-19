@@ -562,6 +562,8 @@ typedef enum {
     rv_op_csealentry,
     rv_op_cloadtags,
 
+    rv_op_gctag,
+
     // Three operand
     rv_op_cspecialrw,
     rv_op_csetbounds,
@@ -1323,6 +1325,8 @@ const rv_opcode_data opcode_data[] = {
     [rv_op_csealentry] = { "csealentry", rv_codec_r, rv_fmt_cd_cs1, NULL, 0, 0, 0 },
     [rv_op_cloadtags] = { "cloadtags", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
 
+    [rv_op_gctag] = { "gctag", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
+
     // capmode loads:
     [rv_op_clb] = { "clb", rv_codec_i, rv_fmt_rd_offset_cs1, NULL, 0, 0, 0 },
     [rv_op_clh] = { "clh", rv_codec_i, rv_fmt_rd_offset_cs1, NULL, 0, 0, 0 },
@@ -1974,6 +1978,12 @@ static void decode_inst_opcode(rv_decode *dec, rv_isa isa, int flags)
             }
             break;
         case 12:
+            if (!((inst >> 12) & 0b111)) {
+               if ((inst >> 20) == 0x100) {
+                   op = rv_op_gctag;
+                   break;
+               }
+            }
             switch (((inst >> 22) & 0b1111111000) | ((inst >> 12) & 0b0000000111)) {
             case 0: op = rv_op_add; break;
             case 1: op = rv_op_sll; break;
