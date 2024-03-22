@@ -562,6 +562,7 @@ typedef enum {
     rv_op_gcperm,
     rv_op_gchi,
     rv_op_gcbase,
+    rv_op_gclen,
 
     // Three operand
     rv_op_cspecialrw,
@@ -1324,6 +1325,7 @@ const rv_opcode_data opcode_data[] = {
     [rv_op_gcperm] = { "gcperm", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
     [rv_op_gchi] = { "gchi", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
     [rv_op_gcbase] = { "gcbase", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
+    [rv_op_gclen] = { "gclen", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
 
     // capmode loads:
     [rv_op_clb] = { "clb", rv_codec_i, rv_fmt_rd_offset_cs1, NULL, 0, 0, 0 },
@@ -2007,6 +2009,7 @@ static void decode_inst_opcode(rv_decode *dec, rv_isa isa, int flags)
                 case 0b00001: op = rv_op_gcperm; break;
                 case 0b00100: op = rv_op_gchi; break;
                 case 0b00101: op = rv_op_gcbase; break;
+                case 0b00110: op = rv_op_gclen; break;
                 }
                 break;
             case 130: op = rv_op_sh1add; break;
