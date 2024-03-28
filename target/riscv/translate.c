@@ -234,12 +234,14 @@ static TCGv temp_new(DisasContext *ctx)
 }
 
 #ifdef CONFIG_RVFI_DII
-//#define gen_get_gpr(t, reg_num, field_prefix)                                  \
-//    do {                                                                       \
-//        _gen_get_gpr(t, reg_num);                                              \
-//        gen_rvfi_dii_set_field(field_prefix##_data, t);                        \
-//        gen_rvfi_dii_set_field_const(field_prefix##_addr, reg_num);            \
-//    } while (0)
+/*
+#define gen_get_gpr(t, reg_num, field_prefix)                                  \
+   do {                                                                       \
+       _gen_get_gpr(t, reg_num);                                              \
+       gen_rvfi_dii_set_field(field_prefix##_data, t);                        \
+       gen_rvfi_dii_set_field_const(field_prefix##_addr, reg_num);            \
+   } while (0)
+*/
 #else
 // #define gen_get_gpr(t, reg_num, field) _gen_get_gpr(t, reg_num)
 #endif
