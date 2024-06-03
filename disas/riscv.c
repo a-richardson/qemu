@@ -541,7 +541,7 @@ typedef enum {
     rv_op_csd,
 
     rv_op_csetboundsimm,
-
+    rv_op_modesw,
     // Two operand
     rv_op_cgetsealed,
     rv_op_cgetoffset,
@@ -1297,7 +1297,7 @@ const rv_opcode_data opcode_data[] = {
     [rv_op_sc] = { "sc", rv_codec_s, rv_fmt_cs2_offset_rs1, NULL, 0, 0, 0 },
     [rv_op_csc] = { "csc", rv_codec_s, rv_fmt_cs2_offset_cs1, NULL, 0, 0, 0 },
     [rv_op_csetboundsimm] = { "csetbounds", rv_codec_i, rv_fmt_cd_cs1_imm, NULL, 0, 0, 0 },
-
+    [rv_op_modesw] = { "modesw", rv_codec_none, rv_fmt_none, NULL, 0, 0, 0 },
     // Two operand
     [rv_op_cgetsealed] = { "cgetsealed", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
     [rv_op_cgetoffset] = { "cgetoffset", rv_codec_r, rv_fmt_rd_cs1, NULL, 0, 0, 0 },
@@ -1992,6 +1992,7 @@ static void decode_inst_opcode(rv_decode *dec, rv_isa isa, int flags)
                 case 0b01000: op = rv_op_sentry; break;
                 }
                 break;
+            case 73:  op = rv_op_modesw; break;
             case 130: op = rv_op_sh1add; break;
             case 132: op = rv_op_sh2add; break;
             case 134: op = rv_op_sh3add; break;
