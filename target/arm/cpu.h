@@ -3617,9 +3617,6 @@ static inline bool arm_cpu_data_is_big_endian(CPUARMState *env)
 typedef CPUARMState CPUArchState;
 typedef ARMCPU ArchCPU;
 
-static inline bool pc_is_current(CPUArchState *env);
-static inline target_ulong cpu_get_recent_pc(CPUArchState *env);
-
 #include "exec/cpu-all.h"
 #include "exec/log_instr.h"
 #include "cpu_cheri.h"
@@ -3645,12 +3642,12 @@ static inline void arm_set_xreg(CPUARMState *env, int regnum,
 #ifdef TARGET_AARCH64
     if (is_a64(env)) {
         env->xregs[regnum] = value;
-        qemu_log_instr_reg(env, arm64_regnames[regnum], value);
+        qemu_log_instr_reg(env, arm64_regnames[regnum], value, regnum, 0);
         return;
     }
 #endif
     env->regs[regnum] = value;
-    qemu_log_instr_reg(env, arm32_regnames[regnum], value);
+    qemu_log_instr_reg(env, arm32_regnames[regnum], value, regnum, 0);
 #endif
 }
 

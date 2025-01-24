@@ -99,7 +99,7 @@ struct SCRInfo {
 void riscv_log_instr_scr_changed(CPURISCVState *env, int scrno)
 {
     if (qemu_log_instr_enabled(env)) {
-        qemu_log_instr_cap(env, scr_info[scrno].name, get_scr(env, scrno),
+        qemu_log_instr_cap(env, scr_info[scrno].name, riscv_get_scr(env, scrno),
                            scrno, LRI_CSR_ACCESS);
     }
 }
@@ -398,13 +398,13 @@ void HELPER(cjal)(CPUArchState *env, uint32_t cd, target_ulong target_addr,
 void HELPER(modesw)(CPUArchState *env, int switch_op)
 {
     if (switch_op == MODESW_TOGGLE) {
-        cap_set_capmode(&env->PCC, !cap_get_capmode(&env->PCC));
+        cap_set_capmode(&env->pcc, !cap_get_capmode(&env->pcc));
     }
     else if (switch_op == MODESW_CAP) {
-        cap_set_capmode(&env->PCC, true);
+        cap_set_capmode(&env->pcc, true);
     }
     else if (switch_op == MODESW_INT) {
-        cap_set_capmode(&env->PCC, false);
+        cap_set_capmode(&env->pcc, false);
     }
 }
 

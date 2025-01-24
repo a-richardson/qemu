@@ -38,7 +38,10 @@
 // This file should be included from cpu.h after CPURISCVState has been defined
 #include "qemu/log.h"
 #include "cheri_utils.h"
-#include "exec/exec-all.h"
+
+bool cpu_restore_state(CPUState *cpu, uintptr_t host_pc, bool will_exit);
+static inline bool pc_is_current(CPUArchState *env);
+static inline target_ulong cpu_get_recent_pc(CPUArchState *env);
 
 #ifdef TARGET_CHERI
 static inline const cap_register_t *_cheri_get_pcc_unchecked(CPUArchState *env);

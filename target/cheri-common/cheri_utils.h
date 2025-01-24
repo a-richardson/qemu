@@ -37,6 +37,9 @@
 
 #include "cheri_defs.h"
 
+#define GET_HOST_RETPC() const uintptr_t _host_return_address = GETPC()
+
+#ifdef TARGET_CHERI
 /* cap_set_sealed does not need a type for cheri bakewell */
 #define SEALED_TYPE_UNUSED 0
 
@@ -47,8 +50,6 @@
 #define PRINT_CAP_FMT_EXTRA
 #define PRINT_CAP_ARGS_EXTRA(cr)
 #endif
-
-#ifdef TARGET_CHERI
 
 /*
  * We take the absence of both otype and flags fields as an indication that
@@ -90,9 +91,6 @@
 
 #define PRINT_CAP_FMTSTR PRINT_CAP_FMTSTR_L1 " " PRINT_CAP_FMTSTR_L2
 #define PRINT_CAP_ARGS(cr) PRINT_CAP_ARGS_L1(cr), PRINT_CAP_ARGS_L2(cr)
-
-#define GET_HOST_RETPC() const uintptr_t _host_return_address = GETPC()
-
 
 static inline target_ulong cap_get_cursor(const cap_register_t *c)
 {

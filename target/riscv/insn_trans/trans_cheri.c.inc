@@ -420,7 +420,7 @@ static inline bool do_trans_modesw(DisasContext *ctx, int switch_op)
     /* TODO: Why do we have to update tcg's pc manually in this case? */
     gen_update_cpu_pc(ctx->pc_succ_insn);
     /* create tcg instruction to exit the tb */
-    exit_tb(ctx);
+    tcg_gen_exit_tb(NULL, 0);
     /* This indicates to riscv_tr_tb_stop that no cleanup is needed. */
     ctx->base.is_jmp = DISAS_NORETURN;
 
@@ -523,7 +523,7 @@ static bool trans_cadd(DisasContext *ctx, arg_cadd *a)
     dest_regnum = tcg_const_i32(a->cd);
     source_regnum = tcg_const_i32(a->cs1);
     gpr_value = tcg_temp_new();
-    gen_get_gpr(gpr_value, a->rs2);
+    gen_get_gpr(ctx, gpr_value, a->rs2);
 
     gen_helper_caddi(cpu_env, dest_regnum, source_regnum, gpr_value);
 
