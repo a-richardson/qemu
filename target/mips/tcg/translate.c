@@ -1455,20 +1455,16 @@ static TCGv cpu_statcounters_icount_kernel, cpu_statcounters_icount_user;
 
 #include "exec/gen-icount.h"
 
-
-#define gen_helper_2_consti32(name, arg, arg2) do {               \
-    TCGv_i32 helper_tmp = tcg_const_i32(arg);                     \
-    TCGv_i32 helper_tmp2 = tcg_const_i32(arg2);                   \
-    gen_helper_##name(cpu_env, helper_tmp, helper_tmp2);          \
-    tcg_temp_free_i32(helper_tmp);                                \
-    tcg_temp_free_i32(helper_tmp2);                               \
-    } while(0)
-
-
 #define DISAS_STOP       DISAS_TARGET_0
 #define DISAS_EXIT       DISAS_TARGET_1
 
-static inline void mips_update_statcounters_icount(DisasContext *ctx);
+const char regnames_HI[4][4] = {
+    "HI0", "HI1", "HI2", "HI3",
+};
+
+const char regnames_LO[4][4] = {
+    "LO0", "LO1", "LO2", "LO3",
+};
 
 /* General purpose registers moves. */
 void gen_load_gpr(TCGv t, int reg)
@@ -1529,7 +1525,7 @@ static inline void gen_load_srsgpr(DisasContext *ctx, int from, int to)
         tcg_temp_free_ptr(addr);
         tcg_temp_free_i32(t2);
     }
-    gen_store_gpr(t0, to);
+    _gen_store_gpr(ctx, t0, to);
     tcg_temp_free(t0);
 }
 
@@ -2040,10 +2036,6 @@ static inline void check_eva(DisasContext *ctx)
         gen_reserved_instruction(ctx);
     }
 }
-#else
-static inline void check_eva(DisasContext *ctx)
-{
-}
 #endif // !TARGET_CHERI
 
 
@@ -2251,7 +2243,8 @@ static inline void op_ld_##insn(TCGv ret, TCGv arg1, int mem_idx,          \
 #else
 #define OP_LD_ATOMIC(insn, fname)                                          \
 static inline void op_ld_##insn(TCGv ret, TCGv_cap_checked_ptr arg1,       \
-                                int mem_idx, DisasContext *ctx) {          \
+                                int mem_idx, DisasContext *ctx)            \
+{                                                                          \
     gen_helper_##insn(ret, cpu_env, arg1, tcg_constant_i32(mem_idx));      \
 }
 #endif
@@ -2576,7 +2569,7 @@ static void gen_st(DisasContext *ctx, uint32_t opc, int rt,
 
 /* Store conditional */
 static void gen_st_cond(DisasContext *ctx, int rt, int base, int offset,
-                        MemOp tcg_mo, bool eva, int opc)
+                        MemOp tcg_mo, bool eva)
 {
     TCGv t0, val;
     TCGv_cap_checked_ptr addr;
@@ -12511,7 +12504,8 @@ static void gen_branch(DisasContext *ctx, int insn_bytes)
 
             if (ctx->base.singlestep_enabled) {
                 save_cpu_state(ctx, 0);
-                gen_helper_raise_exception(cpu_env, tcg_constant_i32(EXCP_DEBUG));
+                gen_helper_raise_exception(cpu_env,
+                                           tcg_constant_i32(EXCP_DEBUG));
             }
             tcg_gen_exit_tb(NULL, 0);
             break;
@@ -12864,7 +12858,9 @@ static void gen_sync(int stype)
 /* ISA extensions (ASEs) */
 
 /* MIPS16 extension to MIPS32 */
+#ifndef TARGET_CHERI
 #include "mips16e_translate.c.inc"
+#endif
 
 /* microMIPS extension to MIPS32/MIPS64 */
 
@@ -12889,14 +12885,11 @@ enum {
     FMT_DWL_L = 2
 };
 
+#ifndef TARGET_CHERI
 #include "micromips_translate.c.inc"
 
-// Disable nanoMIPS for TARGET_CHERI since to avoid having to add $ddc checks
-#ifndef TARGET_CHERI
-
 #include "nanomips_translate.c.inc"
-
-#endif // !TARGET_CHERI
+#endif
 
 /* MIPSDSP functions. */
 static void gen_mipsdsp_ld(DisasContext *ctx, uint32_t opc,
@@ -15100,7 +15093,7 @@ static void decode_opc_special3_r6(CPUMIPSState *env, DisasContext *ctx)
         }
         break;
     case R6_OPC_SC:
-        gen_st_cond(ctx, rt, rs, imm, MO_TESL, false, R6_OPC_SC);
+        gen_st_cond(ctx, rt, rs, imm, MO_TESL, false);
         break;
     case R6_OPC_LL:
         gen_ld(ctx, op1, rt, rs, imm);
@@ -15146,7 +15139,7 @@ static void decode_opc_special3_r6(CPUMIPSState *env, DisasContext *ctx)
 #endif
 #if defined(TARGET_MIPS64)
     case R6_OPC_SCD:
-        gen_st_cond(ctx, rt, rs, imm, MO_TEQ, false, R6_OPC_SCD);
+        gen_st_cond(ctx, rt, rs, imm, MO_TEQ, false);
         break;
     case R6_OPC_LLD:
         gen_ld(ctx, op1, rt, rs, imm);
@@ -15820,6 +15813,7 @@ static void decode_opc_special3(CPUMIPSState *env, DisasContext *ctx)
 
     op1 = MASK_SPECIAL3(ctx->opcode);
 
+#ifndef TARGET_CHERI
     /*
      * EVA loads and stores overlap Loongson 2E instructions decoded by
      * decode_opc_special3_legacy(), so be careful to allow their decoding when
@@ -15848,7 +15842,7 @@ static void decode_opc_special3(CPUMIPSState *env, DisasContext *ctx)
             return;
         case OPC_SCE:
             check_cp0_enabled(ctx);
-            gen_st_cond(ctx, rt, rs, imm, MO_TESL, true, OPC_SCE);
+            gen_st_cond(ctx, rt, rs, imm, MO_TESL, true);
             return;
         case OPC_CACHEE:
             check_eva(ctx);
@@ -15863,6 +15857,7 @@ static void decode_opc_special3(CPUMIPSState *env, DisasContext *ctx)
             return;
         }
     }
+#endif
 
     switch (op1) {
     case OPC_EXT:
@@ -16333,7 +16328,7 @@ static bool decode_opc_legacy(CPUMIPSState *env, DisasContext *ctx)
         if (ctx->insn_flags & INSN_R5900) {
             check_insn_opc_user_only(ctx, INSN_R5900);
         }
-        gen_st_cond(ctx, rt, rs, imm, MO_TESL, false, OPC_SC);
+        gen_st_cond(ctx, rt, rs, imm, MO_TESL, false);
         break;
     case OPC_CACHE:
         check_cp0_enabled(ctx);
@@ -16731,7 +16726,7 @@ static bool decode_opc_legacy(CPUMIPSState *env, DisasContext *ctx)
             check_insn_opc_user_only(ctx, INSN_R5900);
         }
         check_mips_64(ctx);
-        gen_st_cond(ctx, rt, rs, imm, MO_TEQ, false, OPC_SCD);
+        gen_st_cond(ctx, rt, rs, imm, MO_TEQ, false);
         break;
     case OPC_BNVC: /* OPC_BNEZALC, OPC_BNEC, OPC_DADDI */
         if (ctx->insn_flags & ISA_MIPS_R6) {
@@ -16791,7 +16786,7 @@ static bool decode_opc_legacy(CPUMIPSState *env, DisasContext *ctx)
         break;
     case OPC_MDMX:
         /* MDMX: Not implemented. */
-        break;
+        return false;
 #endif /* ! TAGET_CHERI */
     case OPC_PCREL:
         check_insn(ctx, ISA_MIPS_R6);
@@ -17011,11 +17006,21 @@ static void mips_tr_translate_insn(DisasContextBase *dcbase, CPUState *cs)
         gen_mips_log_instr32(ctx);
         decode_opc(env, ctx);
     } else if (ctx->insn_flags & ASE_MICROMIPS) {
+#ifdef TARGET_CHERI
+        gen_reserved_instruction(ctx);
+        g_assert(ctx->base.is_jmp == DISAS_NORETURN);
+        return;
+#else
         gen_mips_log_instr_unsupported(ctx, "micromips");
         ctx->opcode = translator_lduw(env, &ctx->base, ctx->base.pc_next);
         insn_bytes = decode_isa_micromips(env, ctx);
-#ifndef TARGET_CHERI /* MIPS16 not supported */
+#endif
     } else if (ctx->insn_flags & ASE_MIPS16) {
+#ifdef TARGET_CHERI
+        gen_reserved_instruction(ctx);
+        g_assert(ctx->base.is_jmp == DISAS_NORETURN);
+        return;
+#else
         gen_mips_log_instr_unsupported(ctx, "mips16");
         ctx->opcode = translator_lduw(env, &ctx->base, ctx->base.pc_next);
         insn_bytes = decode_ase_mips16e(env, ctx);
@@ -17114,6 +17119,46 @@ void gen_intermediate_code(CPUState *cs, TranslationBlock *tb, int max_insns)
     translator_loop(&mips_tr_ops, &ctx.base, cs, tb, max_insns);
 }
 
+static void fpu_dump_state(CPUMIPSState *env, FILE * f, int flags)
+{
+    int i;
+    int is_fpu64 = !!(env->hflags & MIPS_HFLAG_F64);
+
+#define printfpr(fp)                                                    \
+    do {                                                                \
+        if (is_fpu64)                                                   \
+            qemu_fprintf(f, "w:%08x d:%016" PRIx64                      \
+                         " fd:%13g fs:%13g psu: %13g\n",                \
+                         (fp)->w[FP_ENDIAN_IDX], (fp)->d,               \
+                         (double)(fp)->fd,                              \
+                         (double)(fp)->fs[FP_ENDIAN_IDX],               \
+                         (double)(fp)->fs[!FP_ENDIAN_IDX]);             \
+        else {                                                          \
+            fpr_t tmp;                                                  \
+            tmp.w[FP_ENDIAN_IDX] = (fp)->w[FP_ENDIAN_IDX];              \
+            tmp.w[!FP_ENDIAN_IDX] = ((fp) + 1)->w[FP_ENDIAN_IDX];       \
+            qemu_fprintf(f, "w:%08x d:%016" PRIx64                      \
+                         " fd:%13g fs:%13g psu:%13g\n",                 \
+                         tmp.w[FP_ENDIAN_IDX], tmp.d,                   \
+                         (double)tmp.fd,                                \
+                         (double)tmp.fs[FP_ENDIAN_IDX],                 \
+                         (double)tmp.fs[!FP_ENDIAN_IDX]);               \
+        }                                                               \
+    } while (0)
+
+
+    qemu_fprintf(f,
+                 "CP1 FCR0 0x%08x  FCR31 0x%08x  SR.FR %d  fp_status 0x%02x\n",
+                 env->active_fpu.fcr0, env->active_fpu.fcr31, is_fpu64,
+                 get_float_exception_flags(&env->active_fpu.fp_status));
+    for (i = 0; i < 32; (is_fpu64) ? i++ : (i += 2)) {
+        qemu_fprintf(f, "%3s: ", fregnames[i]);
+        printfpr(&env->active_fpu.fpr[i]);
+    }
+
+#undef printfpr
+}
+
 void mips_tcg_init(void)
 {
     int i;
@@ -17123,12 +17168,12 @@ void mips_tcg_init(void)
         cpu_gpr[i] = tcg_global_mem_new(cpu_env,
                                         offsetof(CPUMIPSState,
                                                  active_tc.gpr[i]),
-                                        mips_gp_regnames[i]);
+                                        regnames[i]);
 #if defined(TARGET_MIPS64)
     cpu_gpr_hi[0] = NULL;
 
     for (unsigned i = 1; i < 32; i++) {
-        g_autofree char *rname = g_strdup_printf("%s[hi]", mips_gp_regnames[i]);
+        g_autofree char *rname = g_strdup_printf("%s[hi]", regnames[i]);
 
         cpu_gpr_hi[i] = tcg_global_mem_new_i64(cpu_env,
                                                offsetof(CPUMIPSState,
@@ -17139,7 +17184,7 @@ void mips_tcg_init(void)
     for (i = 0; i < 32; i++) {
         int off = offsetof(CPUMIPSState, active_fpu.fpr[i].wr.d[0]);
 
-        fpu_f64[i] = tcg_global_mem_new_i64(cpu_env, off, mips_fregnames[i]);
+        fpu_f64[i] = tcg_global_mem_new_i64(cpu_env, off, fregnames[i]);
     }
 #ifdef TARGET_CHERI
     cpu_PC = tcg_global_mem_new(cpu_env,
@@ -17160,10 +17205,10 @@ void mips_tcg_init(void)
     for (i = 0; i < MIPS_DSP_ACC; i++) {
         cpu_HI[i] = tcg_global_mem_new(cpu_env,
                                        offsetof(CPUMIPSState, active_tc.HI[i]),
-                                       mips_regnames_HI[i]);
+                                       regnames_HI[i]);
         cpu_LO[i] = tcg_global_mem_new(cpu_env,
                                        offsetof(CPUMIPSState, active_tc.LO[i]),
-                                       mips_regnames_LO[i]);
+                                       regnames_LO[i]);
     }
     cpu_dspctrl = tcg_global_mem_new(cpu_env,
                                      offsetof(CPUMIPSState,
